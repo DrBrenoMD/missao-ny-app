@@ -24,8 +24,23 @@ Te invitamos a "Noches de Esperanza", nuestro programa hispano hoy en la Iglesia
 ⏰ Hoy a las 7:45 PM. ¡Te esperamos con tu familia!"""
 
 # Missionárias Padrão
-MISSIONARIOS_INICIAIS = ['Célia', 'Brícia', 'Bruna', 'Benere', 'Marly']
-
+MISSIONARIOS_INICIAIS = [
+    'Pr Crislem',
+    'Milena',
+    'Beneyres',
+    'Marly',
+    'Priscila',
+    'Leo',
+    'Brunna',
+    'Alexandre',
+    'Brícia',
+    'Breno',
+    'Jorge',
+    'Esther',
+    'Celia',
+    'Johnnie',
+    'Nicolas'
+]
 
 # 2. FUNÇÕES DE SUPORTE
 def format_us_number(phone_str):
