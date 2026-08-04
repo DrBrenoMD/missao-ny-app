@@ -9,11 +9,11 @@ from datetime import datetime
 st.set_page_config(page_title="Missão NY | Gestão", page_icon="🕊️", layout="centered")
 st.title("🕊️ Missão LusoBrasileira NY")
 
-# Nomes dos arquivos
+# Nomes dos arquivos (certifique-se de que o nome da planilha na raiz do GitHub seja exatamente este)
 DB_FILE = 'banco_de_dados_missao.csv'
 MISSIONARIOS_FILE = 'missionarios.csv'
 TEMPLATE_FILE = 'mensagem_padrao.txt'
-EXCEL_INICIAL = 'FORMULARIO MISSAO NY (Responses)_3.xlsx'
+EXCEL_INICIAL = 'FORMULARIO MISSAO NY (Responses).xlsx'
 
 # Mensagem Padrão Atualizada
 MENSAGEM_INICIAL = """¡Hola [NOME]! Fue un gusto conocerte en la feria de salud.
@@ -44,7 +44,6 @@ def get_whatsapp_link(phone, name, template_msg):
     if pd.isna(phone) or not phone:
         return None
 
-    # Remove qualquer '.0' que o pandas tenha adicionado se leu como float
     phone_str = str(phone).replace('.0', '')
     msg = template_msg.replace("[NOME]", str(name))
 
@@ -60,14 +59,6 @@ def redistribuir_contatos(df_dados, lista_missionarios):
         df_dados.at[idx, 'Missionario_Designado'] = lista_missionarios[i % len(lista_missionarios)]
     return df_dados
 
-
-# 3. TRUQUE PARA ABRIR LINK EM NOVA ABA PELO PYTHON
-if 'open_link' in st.session_state:
-    link = st.session_state['open_link']
-    js = f"window.open('{link}', '_blank');"
-    html = f"<script>{js}</script>"
-    st.components.v1.html(html, height=0, width=0)
-    del st.session_state['open_link']
 
 # 4. INICIALIZAÇÃO DO SISTEMA E IMPORTAÇÃO
 if 'admin_logged' not in st.session_state:
@@ -91,9 +82,7 @@ if not os.path.exists(DB_FILE):
         try:
             df_novo = pd.read_excel(EXCEL_INICIAL)
             col_nome = [c for c in df_novo.columns if 'nome' in c.lower() or 'name' in c.lower()][0]
-            col_tel = \
-            [c for c in df_novo.columns if 'telefone' in c.lower() or 'phone' in c.lower() or 'telefono' in c.lower()][
-                0]
+            col_tel = [c for c in df_novo.columns if 'telefone' in c.lower() or 'phone' in c.lower() or 'telefono' in c.lower()][0]
 
             novas_linhas = []
             for index, row in df_novo.iterrows():
@@ -124,7 +113,7 @@ if not os.path.exists(DB_FILE):
 df_missionarios = pd.read_csv(MISSIONARIOS_FILE)
 df_db = pd.read_csv(DB_FILE)
 
-# CORREÇÃO DO ERRO FLOAT64: Garante que as colunas aceitem texto
+# Garante que as colunas aceitem texto
 df_db['Data_Ultimo_Contato'] = df_db['Data_Ultimo_Contato'].astype(object)
 df_db['Telefone_Validado'] = df_db['Telefone_Validado'].astype(object)
 
@@ -174,14 +163,11 @@ with tab1:
 
                 with cc1:
                     st.write(f"**{row['Nome']}**")
-
-                    # CORREÇÃO DA EXIBIÇÃO: Remove o '.0' do telefone
                     if pd.notna(row['Telefone_Validado']):
                         telefone_limpo = str(row['Telefone_Validado']).replace('.0', '')
                         telefone_exibicao = f"+{telefone_limpo}"
                     else:
                         telefone_exibicao = "S/ Número"
-
                     st.caption(f"📞 {telefone_exibicao}")
 
                 with cc2:
@@ -196,13 +182,31 @@ with tab1:
                 with cc4:
                     if not row['Contato_Realizado']:
                         if row['Status_Telefone'] == 'Válido':
-                            if st.button("💬 Enviar", key=f"btn_env_{idx}", use_container_width=True, type="primary"):
+                            link_whatsapp = get_whatsapp_link(row['Telefone_Validado'], row['Nome'], template_msg)
+                            
+                            # Botão em HTML puro para evitar bloqueador de pop-up
+                            st.markdown(f"""
+                                <a href="{link_whatsapp}" target="_blank" style="
+                                    display: inline-block;
+                                    text-align: center;
+                                    background-color: #25D366;
+                                    color: white;
+                                    padding: 0.4rem 1rem;
+                                    border-radius: 0.5rem;
+                                    text-decoration: none;
+                                    font-weight: 600;
+                                    width: 100%;
+                                    box-sizing: border-box;
+                                    margin-bottom: 5px;
+                                ">💬 Enviar</a>
+                            """, unsafe_allow_html=True)
+
+                            # Checkbox para marcar o envio após abrir a conversa
+                            marcado = st.checkbox("Marcar enviado", key=f"chk_{idx}", value=row['Contato_Realizado'])
+                            if marcado:
                                 df_db.at[idx, 'Contato_Realizado'] = True
                                 df_db.at[idx, 'Data_Ultimo_Contato'] = datetime.now().strftime("%Y-%m-%d %H:%M")
                                 df_db.to_csv(DB_FILE, index=False)
-
-                                link_atualizado = get_whatsapp_link(row['Telefone_Validado'], row['Nome'], template_msg)
-                                st.session_state['open_link'] = link_atualizado
                                 st.rerun()
                         else:
                             st.button("Inválido", key=f"btn_err_{idx}", disabled=True, use_container_width=True)
@@ -216,8 +220,7 @@ with tab1:
         else:
             st.info("Nenhum contato encontrado com os filtros atuais.")
     else:
-        st.warning(
-            f"O banco de dados está vazio. Coloque o arquivo '{EXCEL_INICIAL}' na mesma pasta ou faça o upload na área de Administração.")
+        st.warning(f"O banco de dados está vazio. Certifique-se de que o arquivo '{EXCEL_INICIAL}' está na raiz do repositório.")
 
 # ==========================================
 # ABA 2: ADMINISTRAÇÃO (Protegida por Senha)
@@ -250,8 +253,7 @@ with tab2:
                     df_novo = pd.read_excel(uploaded_file)
 
                     col_nome = [c for c in df_novo.columns if 'nome' in c.lower() or 'name' in c.lower()][0]
-                    col_tel = [c for c in df_novo.columns if
-                               'telefone' in c.lower() or 'phone' in c.lower() or 'telefono' in c.lower()][0]
+                    col_tel = [c for c in df_novo.columns if 'telefone' in c.lower() or 'phone' in c.lower() or 'telefono' in c.lower()][0]
 
                     df_novo.rename(columns={col_nome: 'Nome', col_tel: 'Telefone_Original'}, inplace=True)
 
